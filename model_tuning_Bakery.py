@@ -69,18 +69,18 @@ def main():
     
     # define file paths
     
-    log_path = "logs_yaz/"
-    result_path = "results_yaz/"
+    log_path = "logs_bakery/"
+    result_path = "results_bakery/"
     
     # set a logger file
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    data = load_yaz(one_hot_encoding=True)
-    X = data.data
-    y = data.target
+    bakery = load_bakery(one_hot_encoding=True)
+    X = bakery.data
+    y = bakery.target
     
-    products = y.columns.to_list()
+    X_grouped = X.groupby(['product', 'store'])
     
     n_features = len(X.columns)
     
