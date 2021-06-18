@@ -81,6 +81,7 @@ def main():
     y = bakery.target
     
     X_grouped = X.groupby(['product', 'store'])
+    groups = list(X_grouped.groups.keys())
     
     n_features = len(X.columns)
     
@@ -111,92 +112,90 @@ def main():
     estimator_tuple_list = []
     estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
     estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
-    #estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(n_jobs=4, random_state=1),rfw))
-    #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
-    #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
-    #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),[dl]))
+    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(n_jobs=4, random_state=1),rfw))
+    estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
+    estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
+    estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),[dl]))
     estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
     
     estimators = []
-    results_sc = pd.DataFrame()
     best_model = pd.DataFrame()
+    results = pd.DataFrame()
     for cu, co in zip([5,7.5,9],[5,2.5,1]):
     #for cu, co in zip([7.5],[2.5]):
       for  estimator_tuple in estimator_tuple_list:
         costs = []
         score = []
-        for product in products:
-            
-            X_train, X_test, y_train, y_test = train_test_split(X, y[product], train_size=0.75, shuffle=False)
-            scaler = StandardScaler()
-            scaler.fit(X_train)
-            X_train = scaler.transform(X_train)
-            X_test = scaler.transform(X_test)
-
-            #scale target variable
-            scaler_target = StandardScaler()
-            scaler_target.fit(np.array(y_train).reshape(-1, 1))
-            y_train = scaler_target.transform(np.array(y_train).reshape(-1, 1))
-            #y_test = scaler_target.transform(np.array(y_test).reshape(-1, 1))
-
-            saa_pred = SampleAverageApproximationNewsvendor(cu,co).fit(y_train).predict(y_test.shape[0])
-            saa_pred = scaler_target.inverse_transform(saa_pred)
-            estimator_name = estimator_tuple[0]
-            param_grid = estimator_tuple[2]
-            estimator = estimator_tuple[1]
-            estimator.set_params(cu=cu,co=co)
+        for group in groups:
+    
+          X_temp = X_grouped.get_group(group)
+          y_temp = y.iloc[X_temp.index.values.tolist()]
+    
+          X_train, X_test, y_train, y_test = train_test_split(X_temp, y_temp, train_size=0.75, shuffle=False)
+          scaler = StandardScaler()
+          scaler.fit(X_train)
+          X_train = scaler.transform(X_train)
+          X_test = scaler.transform(X_test)
+    
+          #scale target variable
+          scaler_target = StandardScaler()
+          scaler_target.fit(np.array(y_train).reshape(-1, 1))
+          y_train = scaler_target.transform(np.array(y_train).reshape(-1, 1))
+    
+          saa_pred = SampleAverageApproximationNewsvendor(cu,co).fit(y_train).predict(y_test.shape[0])
+          saa_pred = scaler_target.inverse_transform(saa_pred)
+          estimator_name = estimator_tuple[0]
+          param_grid = estimator_tuple[2]
+          estimator = estimator_tuple[1]
+          estimator.set_params(cu=cu,co=co)
           
-
-            if param_grid == None:
-                if estimator_name=="SAA":
-                    logger.info('Train model {} for product {} and service level {}'.format(estimator_name, product, (cu/(co+cu))))
-                    pred = estimator.fit(y_train).predict(X_test.shape[0])
-                    pred = scaler_target.inverse_transform(pred)
-                else:
-                    logger.info('Train model {} for product {} and service level {}'.format(estimator_name, product, (cu/(co+cu))))
-                    pred = estimator.fit(X_train,y_train).predict(X_test)
-                    pred = scaler_target.inverse_transform(pred)
-
+          if param_grid == None:
+            if estimator_name=="SAA":
+              logger.info('Train model {} for group {} and service level {}'.format(estimator_name, group, (cu/(co+cu))))
+              pred = estimator.fit(y_train).predict(X_test.shape[0])
+              pred = scaler_target.inverse_transform(pred)
             else:
-                logger.info('Train model {} for product {} and service level {}'.format(estimator_name, product, (cu/(co+cu))))
-                cv = RepeatedKFold(n_splits=10, n_repeats=3, random_state=1)
-                gs = GridSearchCV(estimator, param_grid, cv=cv, n_jobs=-1)
-                gs.fit(X_train,y_train)
-                best_estimator = gs.best_estimator_
-                pred = best_estimator.predict(X_test)
-                pred = scaler_target.inverse_transform(pred)
-                estimators.append(best_estimator)
+              logger.info('Train model {} for group {} and service level {}'.format(estimator_name, group, (cu/(co+cu))))
+              pred = estimator.fit(X_train,y_train).predict(X_test)
+              pred = scaler_target.inverse_transform(pred)
+          
+          else:
+            logger.info('Train model {} for group {} and service level {}'.format(estimator_name, group, (cu/(co+cu))))
+            cv = RepeatedKFold(n_splits=10, n_repeats=3, random_state=1)
+            gs = GridSearchCV(estimator, param_grid, cv=cv, n_jobs=-1)
+            gs.fit(X_train,y_train)
+            best_estimator = gs.best_estimator_
+            pred = best_estimator.predict(X_test)
+            pred = scaler_target.inverse_transform(pred)
+            estimators.append(best_estimator)
+            
+            # save best estimator
+            g = {'SL': [cu/(cu+co)], 'group' : str(group), 'model_type' : estimator_name, 'model': best_estimator}
+            best_model = pd.concat([best_model, pd.DataFrame(data=g)])
+            best_model.to_pickle(result_path+'best_models.csv')              
                 
-                # save best estimator
-                g = {'SL': [cu/(cu+co)], 'product' : product, 'model_type' : estimator_name, 'model': best_estimator}
-                best_model = pd.concat([best_model, pd.DataFrame(data=g)])
-                best_model.to_pickle(result_path+'best_models.csv')
-                
-                
-            logger.info('Finished training')
-
-            avg_cost = average_costs(y_test,pred,cu,co,multioutput="uniform_average")
-            p_score = prescriptiveness_score(y_test, pred, saa_pred, cu, co, multioutput="uniform_average")
-            costs.append(avg_cost)
-            score.append(p_score)
-            logger.info("Average cost of best model: {}".format(avg_cost))
-            logger.info("Coeff of Prescriptiveness of best model: {}".format(p_score))
-            logger.info("------------------------------------------------------------------")
+          logger.info('Finished training')
+          avg_cost = average_costs(y_test,pred,cu,co,multioutput="uniform_average")
+          p_score = prescriptiveness_score(y_test, pred, saa_pred, cu, co, multioutput="uniform_average")
+          costs.append(avg_cost)
+          score.append(p_score)
+          logger.info("Average cost of best model: {}".format(avg_cost))
+          logger.info("Coeff of Prescriptiveness of best model: {}".format(p_score))
+          logger.info("------------------------------------------------------------------")
 
         d = {'SL': [cu/(cu+co)], 'Model': [estimator_name]}  
         for i in range(len(costs)):
-            d[products[i]+" AC"] = costs[i]
+          d[str(groups[i])+" AC"] = costs[i]
         for i in range(len(costs)):
-            d[products[i]+" SoP"] = score[i]
-
+          d[str(groups[i])+" SoP"] = score[i]
+    
         average_cost = statistics.mean(costs)
         d["Average Cost"] = average_cost
         presc_score = statistics.mean(score)
         d["Score of Prescriptiveness"] = presc_score
         df = pd.DataFrame(data=d)
-        results_sc = pd.concat([results_sc,df])
-        
-        results_sc.to_csv(result_path+'results.csv')
+        results = pd.concat([results,df])
+        results.to_csv(result_path+'results.csv')
         
     
 if __name__ == '__main__':
