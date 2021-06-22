@@ -115,14 +115,14 @@ def main():
     estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(n_jobs=4, random_state=1),rfw))
     estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
     estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
-    estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),[dl]))
+    #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),[dl]))
     estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
     
     estimators = []
     best_model = pd.DataFrame()
     results = pd.DataFrame()
-    for cu, co in zip([5,7.5,9],[5,2.5,1]):
-    #for cu, co in zip([7.5],[2.5]):
+    #for cu, co in zip([5,7.5,9],[5,2.5,1]):
+    for cu, co in zip([7.5,9],[2.5,1]):
       for  estimator_tuple in estimator_tuple_list:
         costs = []
         score = []
@@ -170,7 +170,10 @@ def main():
             estimators.append(best_estimator)
             
             # save best estimator
-            g = {'SL': [cu/(cu+co)], 'group' : str(group), 'model_type' : estimator_name, 'model': best_estimator}
+            if estimator_name=="DL":
+              g = {'SL': [cu/(cu+co)], 'group' : str(group), 'model_type' : estimator_name, 'model': estimator_name}
+            else:          
+              g = {'SL': [cu/(cu+co)], 'group' : str(group), 'model_type' : estimator_name, 'model': best_estimator}
             best_model = pd.concat([best_model, pd.DataFrame(data=g)])
             best_model.to_pickle(result_path+'best_models.csv')              
                 
