@@ -76,7 +76,7 @@ def main():
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    sid = load_sid(one_hot_encoding=True)
+    sid = load_SID(one_hot_encoding=True)
     X = sid.data
     y = sid.target
     
@@ -112,7 +112,7 @@ def main():
     estimator_tuple_list = []
     estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
     estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
-    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(n_jobs=4, random_state=1),rfw))
+    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(n_jobs=2, random_state=1),rfw))
     estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
     estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
     #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),[dl]))
@@ -121,8 +121,8 @@ def main():
     estimators = []
     best_model = pd.DataFrame()
     results = pd.DataFrame()
-    for cu, co in zip([5,7.5,9],[5,2.5,1]):
-    #for cu, co in zip([7.5],[2.5]):
+    #for cu, co in zip([5,7.5,9],[5,2.5,1]):
+    for cu, co in zip([9],[1]):
       for  estimator_tuple in estimator_tuple_list:
         costs = []
         score = []
@@ -162,7 +162,8 @@ def main():
           else:
             logger.info('Train model {} for group {} and service level {}'.format(estimator_name, group, (cu/(co+cu))))
             cv = RepeatedKFold(n_splits=10, n_repeats=3, random_state=1)
-            gs = GridSearchCV(estimator, param_grid, cv=cv, n_jobs=-1)
+            # use all CPU cores but 8 for CV
+            gs = GridSearchCV(estimator, param_grid, cv=cv, n_jobs=-9)
             gs.fit(X_train,y_train)
             best_estimator = gs.best_estimator_
             pred = best_estimator.predict(X_test)
