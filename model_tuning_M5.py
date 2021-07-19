@@ -117,13 +117,11 @@ def main():
                       (3*n_features,3*1*n_features)],
           "epochs": [100]}
 
-    dtw = {"max_depth":[None,2,4,6,8,10]
+    dtw = {"max_depth":[None,2,4,6,8,10],
            "min_samples_split": [2,4,6,8,16,32,64]
           }
 
-    rfw = {"max_depth":[None,2,4,6,8,10],
-              'min_samples_split':[2,4,6,8,16,32,64],
-              'n_estimators':[10,20,50,100]}
+    rfw = {"max_depth":[None,2,4,6,8,10], 'min_samples_split':[2,4,6,8,16,32,64], 'n_estimators':[10,20,50,100]}
 
     knnw = {'n_neighbors':[1,2,4,8,16,32,64,128]}
 
