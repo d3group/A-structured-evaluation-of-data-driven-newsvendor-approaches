@@ -93,8 +93,8 @@ def main():
     # set a logger file
     logger = log(path=log_path, file="cross_val.logs")
     
-    # load data (data available in team drive space)
-    data = pd.read_csv("M5_final.csv")
+    # load data
+    data = pd.read_csv("m5.csv")
     X = data.drop(["demand"], axis=1)
     y = pd.DataFrame(data["demand"])
     
@@ -121,9 +121,12 @@ def main():
            "min_samples_split": [2,4,6,8,16,32,64]
           }
 
-    rfw = {"max_depth":[None,2,4,6,8,10], 'min_samples_split':[2,4,6,8,16,32,64], 'n_estimators':[10,20,50,100]}
+    rfw = {"max_depth":[None,2,4,6,8,10],
+              'min_samples_split':[2,4,6,8,16,32,64],
+              'n_estimators':[10,20,50,100]}
 
     knnw = {'n_neighbors':[1,2,4,8,16,32,64,128]}
+    #knnw = {'n_neighbors':[16,32]}
 
     gkw = {'kernel_bandwidth':[1,1.5,2,2.5,3, *np.arange(3.5, n_features+0.5, 0.5)]}
     
@@ -135,7 +138,7 @@ def main():
     #estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
     #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
     #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
-    #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
+    estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
     
     # define under- and overage costs
     cu = [9, 7.5, 5, 2.5, 1]
@@ -180,6 +183,17 @@ def main():
             if estimator_name == "SAA":
                 for cu_i, co_i in zip(cu,co):
                     estimator.set_params(cu=cu_i,co=co_i)
+                    cv_scores = cross_val_score(estimator, y_train, cv=cv)
+                    cv_results_temp = pd.DataFrame([cv_scores], columns = ['split'+str(split)+'_test_score' for split in range(10)])
+                    cv_results_temp["mean_test_score"] = cv_scores.mean()
+                    cv_results_temp["Group"] = str(group)
+                    cv_results_temp["Model"] = estimator_name
+                    cv_results_temp["cu"] = cu_i
+                    cv_results_temp["co"] = co_i
+                    cv_results_temp["SL"] = cu_i/(cu_i+co_i)
+                    cv_results_temp["param"] = np.nan
+                    cv_results = pd.concat([cv_results, cv_results_temp], ignore_index=True)
+                    
                     estimator.fit(y_train)
                     pred = estimator.predict(X_test.shape[0])
                     pred = scaler_target.inverse_transform(pred)
@@ -199,13 +213,15 @@ def main():
 
                 scores = parallel(delayed(get_sl_scores)(X=X_train, y=y_train, params=params, cu=cu, co=co, estimator=estimator, cv=cv) for params in candidate_params)
                 scores = np.array(scores)
-                mean_scores = scores.mean(axis=0)
+                mean_scores = scores.mean(axis=1)
                 rank_scores = mean_scores.argmax(axis=0)
                 best_scores = mean_scores.max(axis=0)
                 best_params = [candidate_params[rank] for rank in rank_scores]
                 
                 for i in range(len(cu)):
                     cv_results_temp = pd.DataFrame(scores.T[0].T, columns = ['split'+str(split)+'_test_score' for split in range(n_splits)])
+                    cv_results_temp["mean_test_score"] = mean_scores.T[0]
+                    cv_results_temp["Group"] = str(group)
                     cv_results_temp["Model"] = estimator_name
                     cv_results_temp["cu"] = cu[i]
                     cv_results_temp["co"] = co[i]
@@ -239,6 +255,18 @@ def main():
                 for cu_i, co_i in zip(cu,co):
                     logger.info('Train {} for group {} and service level {}'.format(estimator_name, group, cu_i/(co_i+cu_i)))
                     estimator.set_params(cu=cu_i,co=co_i)
+                    
+                    cv_scores = cross_val_score(estimator, X_train, y_train, cv=cv)
+                    cv_results_temp = pd.DataFrame([cv_scores], columns = ['split'+str(split)+'_test_score' for split in range(10)])
+                    cv_results_temp["mean_test_score"] = cv_scores.mean()
+                    cv_results_temp["Group"] = str(group)
+                    cv_results_temp["Model"] = estimator_name
+                    cv_results_temp["cu"] = cu_i
+                    cv_results_temp["co"] = co_i
+                    cv_results_temp["SL"] = cu_i/(cu_i+co_i)
+                    cv_results_temp["param"] = np.nan
+                    cv_results = pd.concat([cv_results, cv_results_temp], ignore_index=True)
+                    
                     estimator.fit(X_train, y_train)
                     pred = estimator.predict(X_test)
                     pred = scaler_target.inverse_transform(pred)
@@ -265,7 +293,7 @@ def main():
                     gs = GridSearchCV(base_estimator, param_grid, cv=cv, n_jobs=-1)
                     gs.fit(X_train,y_train)
                     
-                    cv_results_temp = pd.DataFrame({k: v for k, v in gs.cv_results_.items() if k.startswith('split')})
+                    cv_results_temp = pd.DataFrame({k: v for k, v in gs.cv_results_.items() if k.startswith('split') or k == 'mean_test_score'})
                     cv_results_temp["Group"] = str(group)
                     cv_results_temp["Model"] = estimator_name
                     cv_results_temp["cu"] = cu_i
@@ -296,7 +324,7 @@ def main():
             cv_results.to_csv(result_path+'cv_results.csv', index=False)
             
             # break for testing --> consinder only one group. Remove for final testing !!!!!!
-            print("Remove break before testing!!! See comment in code")
+            print("Remove break be")
             break
             
 
