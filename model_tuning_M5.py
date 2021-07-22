@@ -321,7 +321,7 @@ def main():
                     logger.info("------------------------------------------------------------------")
                     
             results.to_csv(result_path+'results.csv', index=False)
-            cv_results.to_csv(result_path+'cv_results.csv', index=False
+            cv_results.to_csv(result_path+'cv_results.csv', index=False)
             
 
 if __name__ == '__main__':
