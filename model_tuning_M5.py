@@ -115,7 +115,7 @@ def main():
                       (2*n_features,2*1*n_features),
                       (3*n_features,round(3*0.5*n_features)),
                       (3*n_features,3*1*n_features)],
-          "epochs": [100,200]}
+          "epochs": [10,100,200]}
 
     dtw = {"max_depth":[None,2,4,6,8,10],
            "min_samples_split": [2,4,6,8,16,32,64]
