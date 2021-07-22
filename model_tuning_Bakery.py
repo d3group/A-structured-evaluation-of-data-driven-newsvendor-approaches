@@ -1,5 +1,5 @@
 from sklearn.utils.validation import check_array
-from sklearn.model_selection import ParameterGrid, GridSearchCV, RepeatedKFold, KFold
+from sklearn.model_selection import ParameterGrid, GridSearchCV, RepeatedKFold, KFold, cross_val_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeRegressor
