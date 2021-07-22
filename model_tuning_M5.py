@@ -115,7 +115,7 @@ def main():
                       (2*n_features,2*1*n_features),
                       (3*n_features,round(3*0.5*n_features)),
                       (3*n_features,3*1*n_features)],
-          "epochs": [100]}
+          "epochs": [100,200]}
 
     dtw = {"max_depth":[None,2,4,6,8,10],
            "min_samples_split": [2,4,6,8,16,32,64]
@@ -135,9 +135,9 @@ def main():
     estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
     estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
     estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
-    #estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
-    #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
-    #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
+    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
+    estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
+    estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
     estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
     
     # define under- and overage costs
@@ -321,11 +321,7 @@ def main():
                     logger.info("------------------------------------------------------------------")
                     
             results.to_csv(result_path+'results.csv', index=False)
-            cv_results.to_csv(result_path+'cv_results.csv', index=False)
-            
-            # break for testing --> consinder only one group. Remove for final testing !!!!!!
-            print("Remove break be")
-            break
+            cv_results.to_csv(result_path+'cv_results.csv', index=False
             
 
 if __name__ == '__main__':
