@@ -87,14 +87,14 @@ def get_sl_scores(X, y, params, cu, co, estimator, cv):
 def main():
     
     # define file paths    
-    log_path = ""
-    result_path = ""
+    log_path = "logs_m5/"
+    result_path = "results_m5/"
     
     # set a logger file
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    data = pd.read_csv("m5.csv")
+    data = pd.read_csv("M5_final.csv")
     X = data.drop(["demand"], axis=1)
     y = pd.DataFrame(data["demand"])
     
@@ -322,6 +322,7 @@ def main():
                     
             results.to_csv(result_path+'results.csv', index=False)
             cv_results.to_csv(result_path+'cv_results.csv', index=False)
+            break
             
 
 if __name__ == '__main__':
