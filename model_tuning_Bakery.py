@@ -126,7 +126,6 @@ def main():
               'n_estimators':[10,20,50,100]}
 
     knnw = {'n_neighbors':[1,2,4,8,16,32,64,128]}
-    #knnw = {'n_neighbors':[16,32]}
 
     gkw = {'kernel_bandwidth':[1,1.5,2,2.5,3, *np.arange(3.5, n_features+0.5, 0.5)]}
     
@@ -135,9 +134,9 @@ def main():
     estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
     estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
     estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
-    #estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
-    #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
-    #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
+    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
+    estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
+    estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
     estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
     
     # define under- and overage costs
