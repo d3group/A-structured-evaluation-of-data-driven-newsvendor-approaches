@@ -87,8 +87,8 @@ def get_sl_scores(X, y, params, cu, co, estimator, cv):
 def main():
     
     # define file paths    
-    log_path = ""
-    result_path = ""
+    log_path = "logs_bakery/"
+    result_path = "results_bakery/"
     
     # set a logger file
     logger = log(path=log_path, file="cross_val.logs")
@@ -160,7 +160,7 @@ def main():
             X_temp = X_grouped.get_group(group)
             y_temp = y.iloc[X_temp.index.values.tolist()]
             
-            X_temp = X_temp.drop(["store_id", "dept_id"], axis=1)
+            X_temp = X_temp.drop(["store", "product"], axis=1)
 
             X_train, X_test, y_train, y_test = train_test_split(X_temp, y_temp, train_size=0.75, shuffle=False)
             scaler = StandardScaler()
