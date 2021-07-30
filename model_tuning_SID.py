@@ -94,8 +94,8 @@ def main():
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    X = pd.read_csv("yaz_data.csv")
-    y = pd.read_csv("yaz_target.csv")
+    X = pd.read_csv("SID_data.csv")
+    y = pd.read_csv("SID_target.csv")
     
     # group data 
     X_grouped = X.groupby(["store", "item"])
