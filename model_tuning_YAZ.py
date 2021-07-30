@@ -1,11 +1,8 @@
 from sklearn.utils.validation import check_array
-from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import RepeatedKFold
+from sklearn.model_selection import ParameterGrid, GridSearchCV, RepeatedKFold, KFold, cross_val_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import make_scorer
-from ddop.datasets import load_yaz, load_bakery
 from ddop.metrics import average_costs, prescriptiveness_score
 from ddop.newsvendor import SampleAverageApproximationNewsvendor
 from ddop.newsvendor import DecisionTreeWeightedNewsvendor
@@ -15,14 +12,16 @@ from ddop.newsvendor import LinearRegressionNewsvendor
 from ddop.newsvendor import GaussianWeightedNewsvendor
 from ddop.newsvendor import LinearRegressionNewsvendor
 from ddop.newsvendor import DeepLearningNewsvendor
-from matplotlib import pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
-import statistics
-
+import time
 import os
 import logging
+import statistics
+from multiprocessing import Pool
+from joblib import Parallel, delayed
+from sklearn.base import clone
+import time 
 
 # a function  to create and save logs in the log files
 def log(path, file):
@@ -65,24 +64,41 @@ def log(path, file):
     return logger
 
 
+def get_sl_scores(X, y, params, cu, co, estimator, cv):
+    estimator.set_params(**params)
+    scores = []
+    sl_scores = []
+    for train_index, test_index in cv.split(X):
+        estimator.fit(X[train_index],y[train_index])
+        for cu_i, co_i in zip(cu,co):
+            estimator.cu = [cu_i]
+            estimator.co = [co_i]
+            estimator.cu_ = [cu_i]
+            estimator.co_ = [co_i]
+            score = estimator.score(X[test_index],y[test_index])
+            scores.append(score)
+        sl_scores.append(scores)
+        scores = []
+        
+    return sl_scores
+
+
 def main():
     
-    # define file paths
-    
-    log_path = "logs_yaz/"
-    result_path = "results_yaz/"
+    # define file paths    
+    log_path = ""
+    result_path = ""
     
     # set a logger file
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    data = load_yaz(one_hot_encoding=True)
-    X = data.data
-    y = data.target
+    X = pd.read_csv("yaz_data.csv")
+    y = pd.read_csv("yaz_target.csv")
     
-    products = y.columns.to_list()
+    # set number of features for a single product 
+    n_features = 57
     
-    n_features = len(X.columns)
     
     # define grids
     dl = {"optimizer": ["adam"],
@@ -95,9 +111,11 @@ def main():
                       (2*n_features,2*1*n_features),
                       (3*n_features,round(3*0.5*n_features)),
                       (3*n_features,3*1*n_features)],
-          "epochs": [10,100,200]}
+          "epochs": [100]}
 
-    dtw = {"max_depth":[None,2,4,6,8,10] ,"min_samples_split": [2,4,6,8,16,32,64]}
+    dtw = {"max_depth":[None,2,4,6,8,10],
+           "min_samples_split": [2,4,6,8,16,32,64]
+          }
 
     rfw = {"max_depth":[None,2,4,6,8,10],
               'min_samples_split':[2,4,6,8,16,32,64],
@@ -110,24 +128,38 @@ def main():
     # Define model tuples: 'model_name', model, grid
     estimator_tuple_list = []
     estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
+    #estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
     estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
-    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(n_jobs=2, random_state=1),rfw))
-    estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
-    estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
-    estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),[dl]))
-    estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
+    #estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
+    #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
+    #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
+    #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
     
-    estimators = []
-    results_sc = pd.DataFrame()
-    best_model = pd.DataFrame()
-    #for cu, co in zip([5,7.5,9],[5,2.5,1]):
-    for cu, co in zip([7.5,9],[2.5,1]):
-      for  estimator_tuple in estimator_tuple_list:
-        costs = []
-        score = []
+    # define under- and overage costs
+    cu = [9, 7.5, 5, 2.5, 1]
+    co = [1, 2.5, 5, 7.5, 9]
+    
+    # create dataframe to write best results in 
+    results = pd.DataFrame()
+     
+    # dataframe for cv results
+    cv_results = pd.DataFrame()
+    
+    #define cv strategy
+    n_splits = 10
+    cv = KFold(n_splits=n_splits)
+    
+    products = ['calamari', 'fish', 'shrimp', 'chicken', 'koefte', 'lamb', 'steak']
+    
+    for  estimator_tuple in estimator_tuple_list:
         for product in products:
+            products_to_exclude = products[:]
+            products_to_exclude.remove(product)
+            products_to_exclude = tuple(products_to_exclude)
             
-            X_train, X_test, y_train, y_test = train_test_split(X, y[product], train_size=0.75, shuffle=False)
+            X_temp = X.loc[:,~X.columns.str.startswith(products_to_exclude)]
+            y_temp = y.loc[:,~y.columns.str.startswith(products_to_exclude)]
+            X_train, X_test, y_train, y_test = train_test_split(X_temp, y_temp, train_size=0.75, shuffle=False)
             scaler = StandardScaler()
             scaler.fit(X_train)
             X_train = scaler.transform(X_train)
@@ -137,68 +169,156 @@ def main():
             scaler_target = StandardScaler()
             scaler_target.fit(np.array(y_train).reshape(-1, 1))
             y_train = scaler_target.transform(np.array(y_train).reshape(-1, 1))
-            #y_test = scaler_target.transform(np.array(y_test).reshape(-1, 1))
 
-            saa_pred = SampleAverageApproximationNewsvendor(cu,co).fit(y_train).predict(y_test.shape[0])
-            saa_pred = scaler_target.inverse_transform(saa_pred)
             estimator_name = estimator_tuple[0]
+            estimator = clone(estimator_tuple[1])
             param_grid = estimator_tuple[2]
-            estimator = estimator_tuple[1]
-            estimator.set_params(cu=cu,co=co)
-          
 
-            if param_grid == None:
-                if estimator_name=="SAA":
-                    logger.info('Train model {} for product {} and service level {}'.format(estimator_name, product, (cu/(co+cu))))
-                    pred = estimator.fit(y_train).predict(X_test.shape[0])
+            # TODO: Over SL
+            
+            if estimator_name == "SAA":
+                for cu_i, co_i in zip(cu,co):
+                    estimator.set_params(cu=cu_i,co=co_i)
+                    cv_scores = cross_val_score(estimator, y_train, cv=cv)
+                    cv_results_temp = pd.DataFrame([cv_scores], columns = ['split'+str(split)+'_test_score' for split in range(10)])
+                    cv_results_temp["mean_test_score"] = cv_scores.mean()
+                    cv_results_temp["Product"] = product
+                    cv_results_temp["Model"] = estimator_name
+                    cv_results_temp["cu"] = cu_i
+                    cv_results_temp["co"] = co_i
+                    cv_results_temp["SL"] = cu_i/(cu_i+co_i)
+                    cv_results_temp["param"] = np.nan
+                    cv_results = pd.concat([cv_results, cv_results_temp], ignore_index=True)
+                    
+                    estimator.fit(y_train)
+                    pred = estimator.predict(X_test.shape[0])
                     pred = scaler_target.inverse_transform(pred)
-                else:
-                    logger.info('Train model {} for product {} and service level {}'.format(estimator_name, product, (cu/(co+cu))))
-                    pred = estimator.fit(X_train,y_train).predict(X_test)
-                    pred = scaler_target.inverse_transform(pred)
+                    avg_costs = average_costs(y_test,pred,cu_i,co_i)
+                    avg_costs = round(avg_costs,4)
+                    
+                    d = {'Model': estimator_name, 'cu': cu_i, 'co': co_i, 'SL': cu_i/(cu_i+co_i), 'Product': product, 'Average costs': avg_costs, 'Coefficient of Prescriptiveness': 0, 'Best Params': np.nan}
+                    results = results.append(d, ignore_index=True)
+                    
+                    
+            elif estimator_name in ["KNNW", "RFW", "DTW", "GKW"]:
+                logger.info('Parameter tuning {} for product {}'.format(estimator_name, product))
+                grid = ParameterGrid(param_grid)
+                candidate_params = list(grid)
 
+                parallel = Parallel(n_jobs=-1)
+
+                scores = parallel(delayed(get_sl_scores)(X=X_train, y=y_train, params=params, cu=cu, co=co, estimator=estimator, cv=cv) for params in candidate_params)
+                scores = np.array(scores)
+                mean_scores = scores.mean(axis=1)
+                rank_scores = mean_scores.argmax(axis=0)
+                best_scores = mean_scores.max(axis=0)
+                best_params = [candidate_params[rank] for rank in rank_scores]
+                
+                for i in range(len(cu)):
+                    cv_results_temp = pd.DataFrame(scores.T[0].T, columns = ['split'+str(split)+'_test_score' for split in range(n_splits)])
+                    cv_results_temp["mean_test_score"] = mean_scores.T[0]
+                    cv_results_temp["Product"] = product
+                    cv_results_temp["Model"] = estimator_name
+                    cv_results_temp["cu"] = cu[i]
+                    cv_results_temp["co"] = co[i]
+                    cv_results_temp["SL"] = cu[i]/(cu[i]+co[i])
+                    cv_results_temp["param"] = candidate_params
+                    cv_results = pd.concat([cv_results, cv_results_temp], ignore_index=True)
+
+                for i in range(len(cu)):
+                    logger.info('Train {} with best params for product {} and service level {}'.format(estimator_name, product, cu[i]/(co[i]+cu[i])))
+                    best_estimator = clone(estimator).set_params(**best_params[i])
+                    best_estimator.set_params(cu=cu[i],co=co[i])
+                    best_estimator.fit(X_train, y_train)
+                    pred = best_estimator.predict(X_test)
+                    pred = scaler_target.inverse_transform(pred)
+                    avg_costs = average_costs(y_test,pred,cu[i],co[i])
+                    avg_costs = round(avg_costs,4)
+                    
+                    saa_pred = SampleAverageApproximationNewsvendor(cu[i],co[i]).fit(y_train).predict(X_test.shape[0])
+                    saa_pred = scaler_target.inverse_transform(saa_pred)
+                    SoP = prescriptiveness_score(y_test, pred, saa_pred, cu[i], co[i])
+                    SoP = round(SoP,4)
+                    
+                    d = {'Model': estimator_name, 'cu': cu[i], 'co': co[i], 'SL': cu[i]/(cu[i]+co[i]), 'Product': product, 'Average costs': avg_costs, 'Coefficient of Prescriptiveness': SoP, 'Best Params': best_params[i]}
+                    results = results.append(d, ignore_index=True)
+                    
+                    logger.info("Average cost of best model: {}".format(avg_costs))
+                    logger.info("Coeff of Prescriptiveness of best model: {}".format(SoP))
+                    logger.info("------------------------------------------------------------------")
+                    
+            elif estimator_name == "LR":
+                for cu_i, co_i in zip(cu,co):
+                    logger.info('Train {} for product {} and service level {}'.format(estimator_name, product, cu_i/(co_i+cu_i)))
+                    estimator.set_params(cu=cu_i,co=co_i)
+                    
+                    cv_scores = cross_val_score(estimator, X_train, y_train, cv=cv)
+                    cv_results_temp = pd.DataFrame([cv_scores], columns = ['split'+str(split)+'_test_score' for split in range(10)])
+                    cv_results_temp["mean_test_score"] = cv_scores.mean()
+                    cv_results_temp["Product"] = product
+                    cv_results_temp["Model"] = estimator_name
+                    cv_results_temp["cu"] = cu_i
+                    cv_results_temp["co"] = co_i
+                    cv_results_temp["SL"] = cu_i/(cu_i+co_i)
+                    cv_results_temp["param"] = np.nan
+                    cv_results = pd.concat([cv_results, cv_results_temp], ignore_index=True)
+                    
+                    estimator.fit(X_train, y_train)
+                    pred = estimator.predict(X_test)
+                    pred = scaler_target.inverse_transform(pred)
+                    avg_costs = average_costs(y_test,pred,cu_i,co_i)
+                    avg_costs = round(avg_costs,4)
+                                        
+                    saa_pred = SampleAverageApproximationNewsvendor(cu_i,co_i).fit(y_train).predict(X_test.shape[0])
+                    saa_pred = scaler_target.inverse_transform(saa_pred)
+                    SoP = prescriptiveness_score(y_test, pred, saa_pred, cu_i, co_i)
+                    SoP = round(SoP,4)
+                    
+                    d = {'Model': estimator_name, 'cu': cu_i, 'co': co_i, 'SL': cu_i/(cu_i+co_i), 'Product': product, 'Average costs': avg_costs, 'Coefficient of Prescriptiveness': SoP, 'Best Params': np.nan}
+                    results = results.append(d, ignore_index=True)
+                    
+                    logger.info("Average cost of best model: {}".format(avg_costs))
+                    logger.info("Coeff of Prescriptiveness of best model: {}".format(SoP))
+                    logger.info("------------------------------------------------------------------")
+                    
             else:
-                logger.info('Train model {} for product {} and service level {}'.format(estimator_name, product, (cu/(co+cu))))
-                cv = RepeatedKFold(n_splits=10, n_repeats=3, random_state=1)
-                gs = GridSearchCV(estimator, param_grid, cv=cv, n_jobs=-1)
-                gs.fit(X_train,y_train)
-                best_estimator = gs.best_estimator_
-                pred = best_estimator.predict(X_test)
-                pred = scaler_target.inverse_transform(pred)
-                estimators.append(best_estimator)
-                
-                # save best estimator
-                g = {'SL': [cu/(cu+co)], 'product' : product, 'model_type' : estimator_name, 'model': best_estimator}
-                best_model = pd.concat([best_model, pd.DataFrame(data=g)])
-                best_model.to_pickle(result_path+'best_models.csv')
-                
-                
-            logger.info('Finished training')
+                for cu_i, co_i in zip(cu,co):
+                    base_estimator = clone(estimator)
+                    base_estimator.set_params(cu=cu_i,co=co_i)
+                    logger.info('Parameter tuning {} for product {} and SL {}'.format(estimator_name, product, cu_i/(co_i+cu_i)))
+                    gs = GridSearchCV(base_estimator, param_grid, cv=cv, n_jobs=-1)
+                    gs.fit(X_train,y_train)
+                    
+                    cv_results_temp = pd.DataFrame({k: v for k, v in gs.cv_results_.items() if k.startswith('split') or k == 'mean_test_score'})
+                    cv_results_temp["Product"] = product
+                    cv_results_temp["Model"] = estimator_name
+                    cv_results_temp["cu"] = cu_i
+                    cv_results_temp["co"] = co_i
+                    cv_results_temp["SL"] = cu_i/(cu_i+co_i)
+                    cv_results_temp["param"] = gs.cv_results_["params"]
+                    cv_results = pd.concat([cv_results, cv_results_temp], ignore_index=True)
+                    
+                    best_estimator = gs.best_estimator_
+                    pred = best_estimator.predict(X_test)
+                    pred = scaler_target.inverse_transform(pred)
+                    avg_costs = average_costs(y_test,pred,cu_i,co_i)
+                    avg_costs = round(avg_costs,4)
 
-            avg_cost = average_costs(y_test,pred,cu,co,multioutput="uniform_average")
-            p_score = prescriptiveness_score(y_test, pred, saa_pred, cu, co, multioutput="uniform_average")
-            costs.append(avg_cost)
-            score.append(p_score)
-            logger.info("Average cost of best model: {}".format(avg_cost))
-            logger.info("Coeff of Prescriptiveness of best model: {}".format(p_score))
-            logger.info("------------------------------------------------------------------")
+                    saa_pred = SampleAverageApproximationNewsvendor(cu_i,co_i).fit(y_train).predict(X_test.shape[0])
+                    saa_pred = scaler_target.inverse_transform(saa_pred)
+                    SoP = prescriptiveness_score(y_test, pred, saa_pred, cu_i, co_i)
+                    SoP = round(SoP,4)
+                    
+                    d = {'Model': estimator_name, 'cu': cu_i, 'co': co_i, 'SL': cu_i/(cu_i+co_i), 'Product': product, 'Average costs': avg_costs, 'Coefficient of Prescriptiveness': SoP, 'Best Params': gs.best_params_}
+                    results = results.append(d, ignore_index=True)
+                    
+                    logger.info("Average cost of best model: {}".format(avg_costs))
+                    logger.info("Coeff of Prescriptiveness of best model: {}".format(SoP))
+                    logger.info("------------------------------------------------------------------")
+                    
+            results.to_csv(result_path+'results.csv', index=False)
+            cv_results.to_csv(result_path+'cv_results.csv', index=False)
+            
 
-        d = {'SL': [cu/(cu+co)], 'Model': [estimator_name]}  
-        for i in range(len(costs)):
-            d[products[i]+" AC"] = costs[i]
-        for i in range(len(costs)):
-            d[products[i]+" SoP"] = score[i]
-
-        average_cost = statistics.mean(costs)
-        d["Average Cost"] = average_cost
-        presc_score = statistics.mean(score)
-        d["Score of Prescriptiveness"] = presc_score
-        df = pd.DataFrame(data=d)
-        results_sc = pd.concat([results_sc,df])
-        
-        results_sc.to_csv(result_path+'results.csv')
-        
-    
 if __name__ == '__main__':
-    
     main()
