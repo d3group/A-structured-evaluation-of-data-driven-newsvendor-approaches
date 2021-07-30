@@ -114,7 +114,7 @@ def main():
     estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(n_jobs=2, random_state=1),rfw))
     estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
     estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
-    #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),[dl]))
+    estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),[dl]))
     estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
     
     estimators = []
