@@ -128,12 +128,12 @@ def main():
     # Define model tuples: 'model_name', model, grid
     estimator_tuple_list = []
     estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
-    #estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
+    estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
     estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
-    #estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
-    #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
-    #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
-    #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
+    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
+    estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
+    estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
+    estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
     
     # define under- and overage costs
     cu = [9, 7.5, 5, 2.5, 1]
