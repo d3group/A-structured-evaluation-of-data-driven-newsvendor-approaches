@@ -87,15 +87,15 @@ def get_sl_scores(X, y, params, cu, co, estimator, cv):
 def main():
     
     # define file paths    
-    log_path = "logs_SID"
-    result_path = "results_SID"
+    log_path = "logs_SID/"
+    result_path = "results_SID/"
     
     # set a logger file
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    X = pd.read_csv("SID_data.csv")
-    y = pd.read_csv("SID_target.csv")
+    X = pd.read_csv("data/SID_data.csv")
+    y = pd.read_csv("data/SID_target.csv")
     
     # group data 
     X_grouped = X.groupby(["store", "item"])
@@ -130,13 +130,13 @@ def main():
     
     # Define model tuples: 'model_name', model, grid
     estimator_tuple_list = []
-    estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
-    estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
-    estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
-    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
-    estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
+    #estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
+    #estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
+    #estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
+    #estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
+    #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
     estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
-    estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
+    #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
     
     # define under- and overage costs
     cu = [9, 7.5, 5, 2.5, 1]

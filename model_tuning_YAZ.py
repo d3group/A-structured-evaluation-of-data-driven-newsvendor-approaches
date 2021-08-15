@@ -86,15 +86,15 @@ def get_sl_scores(X, y, params, cu, co, estimator, cv):
 def main():
     
     # define file paths    
-    log_path = ""
-    result_path = ""
+    log_path = "logs_yaz/"
+    result_path = "results_yaz/"
     
     # set a logger file
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    X = pd.read_csv("yaz_data.csv")
-    y = pd.read_csv("yaz_target.csv")
+    X = pd.read_csv("data/yaz_data.csv")
+    y = pd.read_csv("data/yaz_target.csv")
     
     # set number of features for a single product 
     n_features = 57
