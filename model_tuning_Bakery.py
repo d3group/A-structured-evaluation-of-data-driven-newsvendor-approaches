@@ -94,12 +94,11 @@ def main():
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    bakery = load_bakery(one_hot_encoding=True)
-    X = bakery.data
-    y = bakery.target
+    X = pd.read_csv("data/bakery_data.csv")
+    y = pd.read_csv("data/bakery_target.csv")
     
     # group data 
-    X_grouped = X.groupby(["product", "store"])
+    X_grouped = X.groupby(["item", "store"])
     groups = list(X_grouped.groups.keys())
     
     n_features = len(X.columns)-2
@@ -136,7 +135,7 @@ def main():
     estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
     estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
     estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
-    estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
+    #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
     estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
     
     # define under- and overage costs
@@ -160,7 +159,7 @@ def main():
             X_temp = X_grouped.get_group(group)
             y_temp = y.iloc[X_temp.index.values.tolist()]
             
-            X_temp = X_temp.drop(["store", "product"], axis=1)
+            X_temp = X_temp.drop(["item", "product"], axis=1)
 
             X_train, X_test, y_train, y_test = train_test_split(X_temp, y_temp, train_size=0.75, shuffle=False)
             scaler = StandardScaler()
