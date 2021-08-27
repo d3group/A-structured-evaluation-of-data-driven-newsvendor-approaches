@@ -97,6 +97,9 @@ def main():
     X = pd.read_csv("data/bakery_data.csv")
     y = pd.read_csv("data/bakery_target.csv")
     
+    # drop date columns
+    X = X.drop(columns=["date"])
+    
     # group data 
     X_grouped = X.groupby(["item", "store"])
     groups = list(X_grouped.groups.keys())
