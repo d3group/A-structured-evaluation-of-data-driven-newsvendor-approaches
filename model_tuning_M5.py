@@ -95,7 +95,7 @@ def main():
     
     # load data
     data = pd.read_csv("data/m5_final.csv")
-    X = data.drop(["demand","date], axis=1)
+    X = data.drop(["demand","date"], axis=1)
     y = pd.DataFrame(data["demand"])
     
     # group data 
@@ -162,7 +162,7 @@ def main():
             X_temp = X_grouped.get_group(group)
             y_temp = y.iloc[X_temp.index.values.tolist()]
             
-            X_temp = X_temp.drop(["store_id", "dept_id"], axis=1)
+            X_temp = X_temp.drop(["store_id", "item_id"], axis=1)
 
             X_train, X_test, y_train, y_test = train_test_split(X_temp, y_temp, train_size=0.75, shuffle=False)
             scaler = StandardScaler()
