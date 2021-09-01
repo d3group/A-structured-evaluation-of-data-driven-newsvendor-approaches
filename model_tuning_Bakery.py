@@ -97,6 +97,9 @@ def main():
     X = pd.read_csv("data/bakery_data.csv")
     y = pd.read_csv("data/bakery_target.csv")
     
+    X.drop(columns=['Unnamed: 0', 'date', 'is_schoolholiday', 'is_holiday', 'is_holiday_next2days', 'promotion_currentweek', 'promotion_lastweek', 'rain', 'temperature'], inplace=True)
+    y.drop(columns=['Unnamed: 0'], inplace=True)
+    
     # group data 
     X_grouped = X.groupby(["item", "store"])
     groups = list(X_grouped.groups.keys())
@@ -126,7 +129,7 @@ def main():
 
     knnw = {'n_neighbors':[1,2,4,8,16,32,64,128]}
 
-    gkw = {'kernel_bandwidth':[1,1.5,2,2.5,3, *np.arange(3.5, n_features+0.5, 0.5)]}
+    gkw = {'kernel_bandwidth':[*np.arange(0.5, int(np.sqrt(n_features/2))+0.25, 0.25)]}
     
     # Define model tuples: 'model_name', model, grid
     estimator_tuple_list = []
@@ -135,7 +138,7 @@ def main():
     estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
     estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
     estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
-    #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
+    estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
     estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
     
     # define under- and overage costs
@@ -158,8 +161,8 @@ def main():
 
             X_temp = X_grouped.get_group(group)
             y_temp = y.iloc[X_temp.index.values.tolist()]
-            
-            X_temp = X_temp.drop(["item", "product"], axis=1)
+
+            X_temp = X_temp.drop(["item", "store"], axis=1)
 
             X_train, X_test, y_train, y_test = train_test_split(X_temp, y_temp, train_size=0.75, shuffle=False)
             scaler = StandardScaler()
