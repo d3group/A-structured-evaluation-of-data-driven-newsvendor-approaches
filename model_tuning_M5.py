@@ -94,12 +94,12 @@ def main():
     logger = log(path=log_path, file="cross_val.logs")
     
     # load data
-    data = pd.read_csv("data/M5_final.csv")
-    X = data.drop(["demand"], axis=1)
+    data = pd.read_csv("data/m5_final.csv")
+    X = data.drop(["demand","date], axis=1)
     y = pd.DataFrame(data["demand"])
     
     # group data 
-    X_grouped = X.groupby(["store_id", "dept_id"])
+    X_grouped = X.groupby(["store_id", "item_id"])
     groups = list(X_grouped.groups.keys())
     
     n_features = len(X.columns)-2
@@ -139,6 +139,7 @@ def main():
     #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
     estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
     estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
+    estimator_tuple_list.append(('ES', ExponentialSmoothingNewsvendor(trend="add",seasonal="add",seasonal_periods=7),None))
     
     # define under- and overage costs
     cu = [9, 7.5, 5, 2.5, 1]
@@ -177,8 +178,6 @@ def main():
             estimator_name = estimator_tuple[0]
             estimator = clone(estimator_tuple[1])
             param_grid = estimator_tuple[2]
-
-            # TODO: Over SL
             
             if estimator_name == "SAA":
                 for cu_i, co_i in zip(cu,co):
@@ -202,6 +201,29 @@ def main():
                     
                     d = {'Model': estimator_name, 'cu': cu_i, 'co': co_i, 'SL': cu_i/(cu_i+co_i), 'Group': str(group), 'Average costs': avg_costs, 'Coefficient of Prescriptiveness': 0, 'Best Params': np.nan}
                     results = results.append(d, ignore_index=True)
+                    
+            elif estimator_name == "ES":
+                for cu_i, co_i in zip(cu,co):
+                    logger.info('Train {} for group {} and service level {}'.format(estimator_name, group, cu_i/(co_i+cu_i)))
+                    estimator.set_params(cu=cu_i,co=co_i)
+                    
+                    estimator.fit(y_train)
+                    pred = estimator.predict(X_test.shape[0])
+                    pred = scaler_target.inverse_transform(pred)
+                    avg_costs = average_costs(y_test,pred,cu_i,co_i)
+                    avg_costs = round(avg_costs,4)
+                                        
+                    saa_pred = SampleAverageApproximationNewsvendor(cu_i,co_i).fit(y_train).predict(X_test.shape[0])
+                    saa_pred = scaler_target.inverse_transform(saa_pred)
+                    SoP = prescriptiveness_score(y_test, pred, saa_pred, cu_i, co_i)
+                    SoP = round(SoP,4)
+                    
+                    d = {'Model': estimator_name, 'cu': cu_i, 'co': co_i, 'SL': cu_i/(cu_i+co_i), 'Group': str(group), 'Average costs': avg_costs, 'Coefficient of Prescriptiveness': SoP, 'Best Params': np.nan}
+                    results = results.append(d, ignore_index=True)
+                    
+                    logger.info("Average cost of best model: {}".format(avg_costs))
+                    logger.info("Coeff of Prescriptiveness of best model: {}".format(SoP))
+                    logger.info("------------------------------------------------------------------")
                     
                     
             elif estimator_name in ["KNNW", "RFW", "DTW", "GKW"]:
