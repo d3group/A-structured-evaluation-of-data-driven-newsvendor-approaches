@@ -14,6 +14,7 @@ from ddop.newsvendor import LinearRegressionNewsvendor
 from ddop.newsvendor import GaussianWeightedNewsvendor
 from ddop.newsvendor import LinearRegressionNewsvendor
 from ddop.newsvendor import DeepLearningNewsvendor
+from ddop.newsvendor._ExponentialSmoothingNewsvendor import ExponentialSmoothingNewsvendor
 import numpy as np
 import pandas as pd
 import time
