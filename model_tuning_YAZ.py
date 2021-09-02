@@ -12,6 +12,7 @@ from ddop.newsvendor import LinearRegressionNewsvendor
 from ddop.newsvendor import GaussianWeightedNewsvendor
 from ddop.newsvendor import LinearRegressionNewsvendor
 from ddop.newsvendor import DeepLearningNewsvendor
+from ddop.newsvendor._ExponentialSmoothingNewsvendor import ExponentialSmoothingNewsvendor
 import numpy as np
 import pandas as pd
 import time
@@ -127,13 +128,14 @@ def main():
     
     # Define model tuples: 'model_name', model, grid
     estimator_tuple_list = []
-    estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
-    estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
-    estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
-    estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
-    estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
-    estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
-    estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
+    #estimator_tuple_list.append(('SAA', SampleAverageApproximationNewsvendor(),None))
+    #estimator_tuple_list.append(('LR', LinearRegressionNewsvendor(),None))
+    #estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1),dtw))
+    #estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1),rfw))
+    #estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor(),knnw))
+    #estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor(),gkw))
+    #estimator_tuple_list.append(('DL', DeepLearningNewsvendor(),dl))
+    estimator_tuple_list.append(('ES', ExponentialSmoothingNewsvendor(trend="add",seasonal="add",seasonal_periods=7),None))
     
     # define under- and overage costs
     cu = [9, 7.5, 5, 2.5, 1]
@@ -198,6 +200,29 @@ def main():
                     
                     d = {'Model': estimator_name, 'cu': cu_i, 'co': co_i, 'SL': cu_i/(cu_i+co_i), 'Product': product, 'Average costs': avg_costs, 'Coefficient of Prescriptiveness': 0, 'Best Params': np.nan}
                     results = results.append(d, ignore_index=True)
+            
+            elif estimator_name == "ES":
+                for cu_i, co_i in zip(cu,co):
+                    logger.info('Train {} for product {} and service level {}'.format(estimator_name, product, cu_i/(co_i+cu_i)))
+                    estimator.set_params(cu=cu_i,co=co_i)
+                    
+                    estimator.fit(y_train)
+                    pred = estimator.predict(X_test.shape[0])
+                    pred = scaler_target.inverse_transform(pred)
+                    avg_costs = average_costs(y_test,pred,cu_i,co_i)
+                    avg_costs = round(avg_costs,4)
+                                        
+                    saa_pred = SampleAverageApproximationNewsvendor(cu_i,co_i).fit(y_train).predict(X_test.shape[0])
+                    saa_pred = scaler_target.inverse_transform(saa_pred)
+                    SoP = prescriptiveness_score(y_test, pred, saa_pred, cu_i, co_i)
+                    SoP = round(SoP,4)
+                    
+                    d = {'Model': estimator_name, 'cu': cu_i, 'co': co_i, 'SL': cu_i/(cu_i+co_i), 'Product': product, 'Average costs': avg_costs, 'Coefficient of Prescriptiveness': SoP, 'Best Params': np.nan}
+                    results = results.append(d, ignore_index=True)
+                    
+                    logger.info("Average cost of best model: {}".format(avg_costs))
+                    logger.info("Coeff of Prescriptiveness of best model: {}".format(SoP))
+                    logger.info("------------------------------------------------------------------")
                     
                     
             elif estimator_name in ["KNNW", "RFW", "DTW", "GKW"]:
