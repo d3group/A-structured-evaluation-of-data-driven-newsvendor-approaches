@@ -62,7 +62,7 @@ feature_cat_dict = {
 dataset_dict = {
     "m5": [["calendar"], ["calendar", "lag"],["calendar", "lag", "special_m5"]],
     "SID": [["calendar"], ["calendar", "lag"]],
-    "YAZ": [["calendar"], ["calendar", "lag"], ["calendar", "lag", "special_yaz"]]
+    "yaz": [["calendar"], ["calendar", "lag"], ["calendar", "lag", "special_yaz"]]
 }
 
 # define under- and overage costs
