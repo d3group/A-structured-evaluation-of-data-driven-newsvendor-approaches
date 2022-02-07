@@ -39,7 +39,7 @@ estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor()))
 estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor()))
 estimator_tuple_list.append(('DL', DeepLearningNewsvendor(random_state=1)))
 
-# define feature categories 
+# define feature categories
 feature_cat_dict = {
     "calendar": ['weekday', 'month', 'year'],
     "lag": ['demand__sum_values_7', 'demand__median_7',
@@ -55,14 +55,18 @@ feature_cat_dict = {
        'demand__root_mean_square_28', 'demand__maximum_28',
        'demand__absolute_maximum_28', 'demand__minimum_28'],
     "special_yaz": ['is_holiday', 'is_closed', 'wind', 'clouds', 'rain', 'sunshine', 'temperature'],
-    "special_m5": ['is_sporting_event', 'is_cultural_event', 'is_national_event', 'is_religious_event',
-                   'is_snap_day']}
+    "special_m5": ['is_sporting_event', 'is_cultural_event', 'is_national_event',
+                   'is_religious_event', 'is_snap_day'],
+    "special_bakery": ['is_schoolholiday', 'is_holiday',
+                       'is_holiday_next2days', 'rain', 'temperature', 'promotion_currentweek',
+                       'promotion_lastweek']}
 
 # define all datasets to run with the corresponding feature categories
 dataset_dict = {
     "m5": [["calendar"], ["calendar", "lag"],["calendar", "lag", "special_m5"]],
     "SID": [["calendar"], ["calendar", "lag"]],
-    "yaz": [["calendar"], ["calendar", "lag"], ["calendar", "lag", "special_yaz"]]
+    "yaz": [["calendar"], ["calendar", "lag"], ["calendar", "lag", "special_yaz"]],
+    "bakery": [["calendar"], ["calendar", "lag"], ["calendar", "lag", "special_bakery"]]
 }
 
 # define under- and overage costs
