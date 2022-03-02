@@ -36,7 +36,7 @@ estimator_tuple_list.append(('LR', LinearRegressionNewsvendor()))
 estimator_tuple_list.append(('DTW', DecisionTreeWeightedNewsvendor(random_state=1)))
 estimator_tuple_list.append(('RFW', RandomForestWeightedNewsvendor(random_state=1)))
 estimator_tuple_list.append(('KNNW',KNeighborsWeightedNewsvendor()))
-estimator_tuple_list.append(('GKW', GaussianWeightedNewsvendor()))
+estimator_tuple_list.append(('KW', GaussianWeightedNewsvendor()))
 estimator_tuple_list.append(('DL', DeepLearningNewsvendor(random_state=1)))
 
 # define feature categories
